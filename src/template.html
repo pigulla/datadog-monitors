@@ -1,0 +1,40 @@
+    <!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="refresh" content="{{refresh}}">
+        <title>Datadog Monitors</title>
+        <link rel="stylesheet" href="styles.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/moment.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+        <script>
+            $(document).ready(function () {
+                const updated = moment('{{format lastUpdate "YYYY-MM-DD[T]HH:mm:ss"}}');
+                const start = moment();
+
+                setInterval(function () {
+                    $('#updated-at').html(updated.fromNow());
+                    $('#reload-timer')
+                        .attr('datetime', start.format('YYYY-MM-DD[T]HH:mm:ss'))
+                        .html(moment.duration(start.diff(moment())).humanize(true));
+                }, 1000);
+            });
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            {{#each monitors}}
+                <a href="https://app.datadoghq.com/monitors#{{id}}" class="monitor {{classify overall_state}}">
+                    <div class="name">{{name}}</div>
+                    <div class="state">{{overall_state}}</div>
+                </a>
+            {{/each}}
+        </div>
+        <div id="status">
+            <time id="reload-timer">just now</time>
+            <time id="updated-at" datetime="{{format lastUpdate 'YYYY-MM-DD[T]HH:mm:ss'}}">
+                {{fromNow lastUpdate}}
+            </time>
+        </div>
+    </body>
+</html>
