@@ -13,8 +13,9 @@ const Handlebars = require('handlebars');
 const Promise = require('bluebird');
 const staticSrv = require('node-static');
 
-const UPDATE_INTERVAL = 30; // in seconds
+const UPDATE_INTERVAL = config.get('update_interval'); // in seconds
 const OUT_DIR = path.join(__dirname, '..', 'output');
+const blacklist = new Set(config.get('blacklist'));
 const styleFile = path.join(__dirname, 'styles.less');
 const templateFile = path.join(__dirname, 'template.html');
 const outfile = path.join(OUT_DIR, 'index.html');
@@ -55,7 +56,7 @@ function* serve() {
 function* loadData() {
     console.log('Loading data');
 
-    return yield request({
+    const monitors = yield request({
         uri: 'https://app.datadoghq.com/api/v1/monitor',
         method: 'get',
         json: true,
@@ -64,6 +65,8 @@ function* loadData() {
             application_key: config.get('application_key')
         }
     });
+
+    return monitors.filter(monitor => !blacklist.has(monitor.id));
 }
 
 function* generateFiles(monitors) {
