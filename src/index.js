@@ -5,7 +5,6 @@ const path = require('path');
 const http = require('http');
 
 const config = require('config');
-const co = require('co');
 const less = require('less');
 const request = require('request-promise');
 const moment = require('moment');
@@ -24,39 +23,40 @@ Handlebars.registerHelper('classify', text => text.replace(/\s+/, '-').toLowerCa
 Handlebars.registerHelper('fromNow', date => date.fromNow());
 Handlebars.registerHelper('format', (date, format) => date.format(format));
 
-function* fetchDataAndReschedule() {
+async function fetch_data_and_reschedule() {
     try {
-        const data = yield loadData();
-        yield generateFiles(data);
+        const data = await load_data();
+        await generate_files(data);
     } catch (e) {
         console.error(e);
     }
 
-    setTimeout(() => co(fetchDataAndReschedule), UPDATE_INTERVAL * 1000);
+    setTimeout(async function () {
+        await fetch_data_and_reschedule();
+    }, UPDATE_INTERVAL * 1000);
 }
 
+(async function () {
+    await fetch_data_and_reschedule();
+    await render_css();
+    await serve();
+})();
 
-co(function* () {
-    yield fetchDataAndReschedule();
-    yield renderCss();
-    yield serve();
-});
-
-function* serve() {
+async function serve() {
     console.log('Starting static webserver');
     const file = new staticSrv.Server(OUT_DIR);
 
-    yield Promise.fromCallback(cb => http.createServer(function (request, response) {
+    await Promise.fromCallback(cb => http.createServer(function (request, response) {
         request.addListener('end', () => file.serve(request, response)).resume();
     }).listen(8080, cb));
 
     console.log('Webserver listening on port 8080');
 }
 
-function* loadData() {
+async function load_data() {
     console.log('Loading data');
 
-    const monitors = yield request({
+    const monitors = await request({
         uri: 'https://app.datadoghq.com/api/v1/monitor',
         method: 'get',
         json: true,
@@ -69,22 +69,22 @@ function* loadData() {
     return monitors.filter(monitor => !blacklist.has(monitor.id));
 }
 
-function* generateFiles(monitors) {
-    const template = yield fs.readFile(templateFile);
+async function generate_files(monitors) {
+    const template = await fs.readFile(templateFile);
     const tpl = Handlebars.compile(template.toString());
 
     console.log('Generating index.html');
-    yield fs.writeFile(outfile, tpl({
+    await fs.writeFile(outfile, tpl({
         lastUpdate: moment(),
         monitors,
         refresh: UPDATE_INTERVAL
     }));
 }
 
-function* renderCss() {
-    const source = yield fs.readFile(styleFile);
-    const result = yield Promise.fromCallback(cb => less.render(source.toString(), cb));
+async function render_css() {
+    const source = await fs.readFile(styleFile);
+    const result = await Promise.fromCallback(cb => less.render(source.toString(), cb));
 
     console.log('Generating styles.css');
-    yield fs.writeFile(path.join(__dirname, '..', 'output', 'styles.css'), result.css);
+    await fs.writeFile(path.join(__dirname, '..', 'output', 'styles.css'), result.css);
 }
