@@ -10,8 +10,11 @@ const request = require('request-promise');
 const moment = require('moment');
 const Handlebars = require('handlebars');
 const Promise = require('bluebird');
-const staticSrv = require('node-static');
+const StaticServer = require('node-static').Server;
 
+const SILENT = config.get('silent');
+const INTERFACE = config.get('interface');
+const PORT = config.get('port');
 const UPDATE_INTERVAL = config.get('update_interval'); // in seconds
 const OUT_DIR = path.join(__dirname, '..', 'output');
 const blacklist = new Set(config.get('blacklist'));
@@ -22,6 +25,12 @@ const outfile = path.join(OUT_DIR, 'index.html');
 Handlebars.registerHelper('classify', text => text.replace(/\s+/, '-').toLowerCase());
 Handlebars.registerHelper('fromNow', date => date.fromNow());
 Handlebars.registerHelper('format', (date, format) => date.format(format));
+
+function log_unless_silent(message) {
+    if (!SILENT) {
+        console.log(message);
+    }
+}
 
 async function fetch_data_and_reschedule() {
     try {
@@ -44,17 +53,18 @@ async function fetch_data_and_reschedule() {
 
 async function serve() {
     console.log('Starting static webserver');
-    const file = new staticSrv.Server(OUT_DIR);
+    const static_server = new StaticServer(OUT_DIR);
 
     await Promise.fromCallback(cb => http.createServer(function (request, response) {
-        request.addListener('end', () => file.serve(request, response)).resume();
-    }).listen(8080, cb));
+        request.addListener('end', () => static_server.serve(request, response)).resume();
+    }).listen(PORT, INTERFACE, cb));
 
-    console.log('Webserver listening on port 8080');
+    console.log(`Webserver listening on ${INTERFACE}:${PORT}`);
+    console.log(`Updating every ${UPDATE_INTERVAL} seconds`);
 }
 
 async function load_data() {
-    console.log('Loading data');
+    log_unless_silent('Loading data');
 
     const monitors = await request({
         uri: 'https://app.datadoghq.com/api/v1/monitor',
@@ -90,7 +100,7 @@ async function generate_files(monitors) {
     const template = await fs.readFile(templateFile);
     const tpl = Handlebars.compile(template.toString());
 
-    console.log('Generating index.html');
+    log_unless_silent('Generating index.html');
     await fs.writeFile(outfile, tpl({
         lastUpdate: moment(),
         monitors,

@@ -1,4 +1,7 @@
 {
+    "interface": "127.0.0.1",
+    "port": 8080,
     "update_interval": 30,
-    "blacklist": []
+    "blacklist": [],
+    "silent": false
 }
