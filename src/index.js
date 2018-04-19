@@ -73,27 +73,14 @@ async function load_data() {
         qs: {
             api_key: config.get('api_key'),
             application_key: config.get('application_key'),
-            group_states: 'alert,warn'
+            group_states: 'all',
+            monitor_tags: 'team:operations'
         }
     });
 
-    const single_alerts = monitors
+    return monitors
         .filter(m => !blacklist.has(m.id))
-        .filter(m => Object.keys(m.state.groups).length === 0)
         .map(m => ({ id: m.id, state: m.overall_state, name: m.name }));
-    const multi_alerts = monitors
-        .filter(m => !blacklist.has(m.id))
-        .filter(m => Object.keys(m.state.groups).length > 0);
-
-    const expanded = multi_alerts.reduce(function (result, monitor) {
-        return result.concat(Object.values(monitor.state.groups).map(group => ({
-            id: monitor.id,
-            state: group.status,
-            name: `${monitor.name} (${group.name})`
-        })));
-    }, []);
-
-    return expanded.concat(single_alerts);
 }
 
 async function generate_files(monitors) {
